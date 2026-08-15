@@ -1,0 +1,23 @@
+{
+  "network": {
+    "name": "base",
+    "chain_id": 8453,
+    "rpc_url": "https://YOUR_RPC_ENDPOINT"
+  },
+  "drop": {
+    "opensea_collection_url": "https://opensea.io/collection/your-collection",
+    "contract": "0x0000000000000000000000000000000000000000",
+    "mint_calldata": "0x",
+    "mint_value_wei": "0",
+    "max_gas_price_wei": "",
+    "max_total_cost_wei": "",
+    "sale_check": {
+      "function": "saleActive()",
+      "expect": true,
+      "poll_interval_seconds": 10
+    }
+  },
+  "notification": {
+    "webhook_url": ""
+  }
+}

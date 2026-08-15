@@ -1,0 +1,23 @@
+{
+  "name": "Verified collection public mint",
+  "wallet_address": "0x0000000000000000000000000000000000000000",
+  "network": {
+    "name": "base",
+    "chain_id": 8453,
+    "rpc_url": "https://YOUR_PRIVATE_RPC_ENDPOINT"
+  },
+  "contract": "0x0000000000000000000000000000000000000000",
+  "sale_check": {
+    "function": "publicSaleActive()",
+    "expect": true,
+    "poll_interval_seconds": 5
+  },
+  "mint": {
+    "method": "mint(uint256)",
+    "quantity": 100,
+    "raw_calldata": "",
+    "value_wei": "10000000000000000",
+    "max_gas_price_wei": "3000000000",
+    "max_total_cost_wei": "12000000000000000"
+  }
+}

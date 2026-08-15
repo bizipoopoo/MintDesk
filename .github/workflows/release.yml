@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.2.2
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Universal
+            os: macos-14
+            platform: darwin/universal
+            artifact: macos
+          - name: Windows x64
+            os: windows-latest
+            platform: windows/amd64
+            artifact: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+
+      - name: Install NSIS
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis --yes --no-progress
+
+      - name: Build macOS Universal application
+        if: runner.os == 'macOS'
+        run: |
+          wails build -clean -platform darwin/universal
+          codesign --force --deep --sign - --identifier com.chenwj.mintdesk.robinhood build/bin/MintDeskRobinhood.app
+          ditto -c -k --sequesterRsrc --keepParent build/bin/MintDeskRobinhood.app MintDeskRobinhood-macOS-universal.zip
+
+      - name: Build Windows x64 installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          wails build -clean -platform windows/amd64 -nsis -webview2 download
+          Copy-Item build/bin/MintDeskRobinhood-amd64-installer.exe MintDeskRobinhood-Windows-x64-Setup.exe
+          Compress-Archive -Path build/bin/MintDeskRobinhood.exe -DestinationPath MintDeskRobinhood-Windows-x64-portable.zip
+
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: MintDeskRobinhood-macOS-universal.zip
+          if-no-files-found: error
+
+      - name: Upload Windows artifacts
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            MintDeskRobinhood-Windows-x64-Setup.exe
+            MintDeskRobinhood-Windows-x64-portable.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" release-assets/* --generate-notes --title "MintDesk $RELEASE_TAG" --target "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
+          fi

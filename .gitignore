@@ -1,0 +1,24 @@
+config.json
+.env
+mint-data/
+
+# Local desktop and frontend build output
+build/bin/
+frontend/dist/
+frontend/node_modules/
+
+# Test and editor output
+coverage/
+*.prof
+*.test
+.DS_Store
+.idea/
+.vscode/
+
+# Local signing material must never be committed
+*.p12
+*.pfx
+*.cer
+*.crt
+*.key
+*.pem
