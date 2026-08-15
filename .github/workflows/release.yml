@@ -55,7 +55,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
 
       - name: Install NSIS
         if: runner.os == 'Windows'

@@ -297,4 +297,6 @@ export namespace main {
 	        this.maxTotalCostEth = source["maxTotalCostEth"];
 	    }
 	}
+
+
 }

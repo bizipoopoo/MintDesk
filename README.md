@@ -117,7 +117,7 @@ OpenSea `SIGNED_PRESALE` and Merkle allowlist stages are displayed but cannot cu
 
 ```sh
 npm --prefix frontend install
-go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
 wails build
 ```
 
