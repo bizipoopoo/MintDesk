@@ -1,6 +1,6 @@
 # MintDesk Robinhood Desktop Guide
 
-This guide uses the [KUJI OpenSea page](https://opensea.io/collection/kuji-723097858/overview) to demonstrate the complete workflow for inspecting a project, creating a public mint task, arming the runner, and stopping or removing tasks.
+This guide uses the [KUJI OpenSea page](https://opensea.io/collection/kuji-723097858/overview) to demonstrate the complete workflow for inspecting a project, creating a per-wallet multi-stage mint strategy, arming the runner, and stopping or removing tasks.
 
 > [!CAUTION]
 > KUJI is used only to demonstrate the interface. This is not a recommendation or endorsement by MintDesk, its maintainers, or this guide. The screenshot was captured on August 17, 2026 (GMT+8); project pages, contracts, and mint stages can change at any time. At capture time, KUJI was **Not verified by OpenSea** and had no public official website or X link that could be used to verify the team. Independently verify the project identity, official announcement, contract, chain, stage, price, and wallet limit before use.
@@ -42,7 +42,7 @@ https://opensea.io/collection/kuji-723097858/overview
 
 Click **Inspect OpenSea**. MintDesk reads the collection contract, chain, supply, OpenSea verification flags, stage schedule, displayed price, and per-wallet limits. These inspected values cannot be manually overridden in the task form.
 
-![Sanitized MintDesk screenshot inspecting KUJI OpenSea mint stages](images/mintdesk-kuji-inspection.jpg)
+![Sanitized MintDesk screenshot showing the KUJI automatic OpenSea stage strategy](images/mintdesk-kuji-strategy.png)
 
 The screenshot contains only public project information; local wallets and RPC credentials were cropped out. At capture time, the interface showed:
 
@@ -58,26 +58,28 @@ The screenshot contains only public project information; local wallets and RPC c
 
 The app displays times in the computer's local timezone. When working across timezones, compare the app with OpenSea and the project's official announcement, and confirm that the computer's clock and timezone are correct.
 
-### Why GTD and WL cannot be selected
+### How GTD, WL, and Public are combined
 
-KUJI's GTD and WL stages are allowlist stages. They require a wallet-specific OpenSea signature or Merkle proof, and those private parameters are not available in the public page HTML. MintDesk displays the stages but disables automatic task creation for them. It will not guess a proof or silently convert an allowlist task into a public mint.
+KUJI's GTD and WL stages are allowlist stages. They require wallet-specific OpenSea signatures or Merkle proofs, so MintDesk does not copy one global credential into every wallet task. While each stage is live, it requests that wallet's exact transaction data from OpenSea, verifies the SeaDrop target and method plus the collection, wallet, quantity, price, time, stage index, fee recipient, and value, and simulates the transaction before signing locally.
 
-Desktop automation currently supports only OpenSea SeaDrop **Public (`PUBLIC_SALE`)** stages. In this example, only **Public stage** can be used to create an automatic task.
+Desktop automation supports SeaDrop **Signed Presale (`SIGNED_PRESALE`)**, **Merkle Presale (`MERKLE_PRESALE`)**, and **Public (`PUBLIC_SALE`)** stages. All supported stages are included automatically.
 
-## 4. Create a Public mint task
+The quantity is a final target for each wallet. If a wallet has a WL allowance of 2 and the target is 5, MintDesk mints 2 during WL, waits for confirmation, and mints only the remaining 3 during Public. If another wallet has no WL eligibility, it skips WL and can mint all 5 during Public. Eligibility and remaining quantity are calculated independently for every wallet.
+
+## 4. Create an automatic multi-stage task
 
 After verifying the inspection result, complete the remaining fields:
 
 1. **Select local wallets**: choose the dedicated hot wallets to use. MintDesk creates one execution task per wallet.
 2. **Collection task name**: keep the inspected project name or enter a clear local label.
-3. **Mint quantity per wallet**: enter the quantity for each wallet. It must not exceed the stage limit, and any earlier mints by that wallet count toward the limit.
+3. **Mint quantity per wallet**: enter the final target for each wallet. It must not exceed the highest wallet limit across the included stages, and any earlier on-chain mints count toward the target and SeaDrop limits.
 4. **Mint monitoring speed**:
    - Extreme: 100 ms
    - Fast: 500 ms
    - Slow: 2 seconds
    - Very slow: 5 seconds
 5. **Maximum fee per gas (Gwei)**: set the highest gas fee you are willing to accept.
-6. **Maximum total cost per wallet (ETH)**: cap the mint price plus worst-case gas for each wallet. Set this deliberately and leave enough room for reasonable gas.
+6. **Maximum total cost per wallet (ETH)**: set a deliberate safety cap large enough for the highest possible mint value and each transaction the strategy may need.
 7. **Robinhood RPC**: use a trusted Robinhood Chain RPC endpoint. Public endpoints may rate-limit polling. Private RPC URLs may contain API keys, so never screenshot or commit them.
 8. Click **Create collection for N wallets**.
 
@@ -91,24 +93,26 @@ Return to **Overview**, verify the **Enabled tasks** count and task details, and
 2. Select **I understand this may broadcast real transactions.**
 3. Click **Arm & start**.
 
-This gives enabled tasks permission to broadcast real transactions. Future tasks wait on a local timer and normally connect to the RPC one minute before the selected stage starts. The app must remain open, and the computer must stay awake and online around the mint window.
+This gives enabled tasks permission to broadcast real transactions. Future tasks wait on a local timer and normally connect to the RPC one minute before the first included stage starts. The app must remain open, and the computer must stay awake and online across every relevant mint window.
 
 Immediately before broadcast, MintDesk rechecks:
 
 - that the RPC Chain ID is `4663`;
-- the on-chain SeaDrop public price and start/end times;
+- the on-chain Public configuration or the wallet-specific OpenSea signed/Merkle transaction data;
+- the SeaDrop target and method, stage price and start/end times, stage index, wallet, quantity, fee recipient, and value;
 - the wallet's existing mint count and the collection's remaining supply;
 - the allowed fee recipient, wallet balance, gas cap, and total-cost cap;
 - whether the transaction passes gas estimation and simulation.
 
-Each task broadcasts at most one transaction. An RPC timeout after broadcast can leave the result ambiguous, so MintDesk does not automatically resend the transaction. Broadcast does not guarantee a successful mint; verify the final transaction receipt on a Robinhood Chain explorer.
+A wallet strategy can broadcast an allowlist transaction and a later Public remainder transaction. MintDesk waits for confirmation before recalculating the remaining target. An RPC timeout after broadcast can leave the result ambiguous, so MintDesk does not automatically resend that transaction. Broadcast does not guarantee a successful mint; verify every final transaction receipt on a Robinhood Chain explorer.
 
 ## 6. Stop, disable, or delete tasks
 
 - While the runner is active, click **Stop runner** in **Overview** to stop the current watchers.
 - After stopping the runner, use **Disable all** or **Enable all** for a collection in **Mint tasks**.
 - **Delete** removes every wallet task in that collection but does not delete encrypted local wallets.
-- A watcher stops after broadcast, failure, a manual stop, or the stage end. Review the transaction receipt and failure reason before enabling it again. Never rebroadcast only because the interface has not yet shown a receipt.
+- Wallet rows are collapsed by default. Use **Show wallets (N)** or **Hide wallets** to inspect them without making a large task list unreadable.
+- A watcher stops when the target is reached, all stages end, it fails safely, or it is stopped manually. Review transaction receipts and failure reasons before enabling it again. Never rebroadcast only because the interface has not yet shown a receipt.
 
 Collection enable, disable, and delete controls are locked while the runner is active. Stop the runner before changing a collection.
 
@@ -118,13 +122,13 @@ Collection enable, disable, and delete controls are locked while the runner is a
 
 Confirm that the URL is an OpenSea collection or mint page and that OpenSea is reachable. Click **Refresh** and try again. If the page does not publish a complete stage, MintDesk will not infer one.
 
-**A stage is visible but its radio button is disabled**
+**A stage is visible but not included in the automatic strategy**
 
-The stage probably requires a wallet-specific signature or Merkle proof. The current version automates only public SeaDrop stages.
+The stage uses an unsupported stage type, non-Robinhood price token, or non-native payment token. Signed, Merkle, and Public native-token SeaDrop stages are included automatically.
 
 **Create collection is disabled**
 
-Select at least one imported local wallet and confirm that a supported Public stage is selected.
+Select at least one imported local wallet and confirm that the inspection contains at least one supported future stage.
 
 **The task does not connect to the RPC far in advance**
 

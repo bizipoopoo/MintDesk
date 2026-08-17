@@ -26,6 +26,7 @@ export namespace main {
 	    price: string;
 	    priceWei: string;
 	    priceSymbol: string;
+	    priceContract: string;
 	    autoMintSupported: boolean;
 	    blockReason?: string;
 
@@ -44,13 +45,17 @@ export namespace main {
 	        this.price = source["price"];
 	        this.priceWei = source["priceWei"];
 	        this.priceSymbol = source["priceSymbol"];
+	        this.priceContract = source["priceContract"];
 	        this.autoMintSupported = source["autoMintSupported"];
 	        this.blockReason = source["blockReason"];
 	    }
 	}
 	export class OpenSeaTaskSnapshot {
 	    slug: string;
-	    stage: OpenSeaStage;
+	    stage?: OpenSeaStage;
+	    stages?: OpenSeaStage[];
+	    targetQuantity?: number;
+	    spentWei?: string;
 	    collection: string;
 
 	    static createFrom(source: any = {}) {
@@ -61,6 +66,9 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.slug = source["slug"];
 	        this.stage = this.convertValues(source["stage"], OpenSeaStage);
+	        this.stages = this.convertValues(source["stages"], OpenSeaStage);
+	        this.targetQuantity = source["targetQuantity"];
+	        this.spentWei = source["spentWei"];
 	        this.collection = source["collection"];
 	    }
 
@@ -107,7 +115,8 @@ export namespace main {
 	export class SaleGate {
 	    function: string;
 	    expect: boolean;
-	    pollIntervalSeconds: number;
+	    pollIntervalSeconds?: number;
+	    pollIntervalMilliseconds?: number;
 
 	    static createFrom(source: any = {}) {
 	        return new SaleGate(source);
@@ -118,6 +127,7 @@ export namespace main {
 	        this.function = source["function"];
 	        this.expect = source["expect"];
 	        this.pollIntervalSeconds = source["pollIntervalSeconds"];
+	        this.pollIntervalMilliseconds = source["pollIntervalMilliseconds"];
 	    }
 	}
 	export class MintTask {
@@ -212,6 +222,20 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class GeneratedWalletBatch {
+	    mnemonic: string;
+	    addresses: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new GeneratedWalletBatch(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.mnemonic = source["mnemonic"];
+	        this.addresses = source["addresses"];
+	    }
+	}
 
 
 	export class OpenSeaDrop {
@@ -273,10 +297,10 @@ export namespace main {
 	    name: string;
 	    openSeaUrl: string;
 	    walletAddresses: string[];
-	    stageIndex: number;
 	    quantityPerWallet: number;
 	    rpcUrl: string;
-	    pollIntervalSeconds: number;
+	    pollIntervalSeconds?: number;
+	    pollIntervalMilliseconds?: number;
 	    maxGasPriceGwei: string;
 	    maxTotalCostEth: string;
 
@@ -289,10 +313,10 @@ export namespace main {
 	        this.name = source["name"];
 	        this.openSeaUrl = source["openSeaUrl"];
 	        this.walletAddresses = source["walletAddresses"];
-	        this.stageIndex = source["stageIndex"];
 	        this.quantityPerWallet = source["quantityPerWallet"];
 	        this.rpcUrl = source["rpcUrl"];
 	        this.pollIntervalSeconds = source["pollIntervalSeconds"];
+	        this.pollIntervalMilliseconds = source["pollIntervalMilliseconds"];
 	        this.maxGasPriceGwei = source["maxGasPriceGwei"];
 	        this.maxTotalCostEth = source["maxTotalCostEth"];
 	    }

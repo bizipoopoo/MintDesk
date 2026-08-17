@@ -18,6 +18,14 @@ export function Dashboard() {
   return window['go']['main']['App']['Dashboard']();
 }
 
+export function DeleteCollectionTasks(arg1, arg2) {
+  return window['go']['main']['App']['DeleteCollectionTasks'](arg1, arg2);
+}
+
+export function GenerateMnemonicWallets(arg1, arg2) {
+  return window['go']['main']['App']['GenerateMnemonicWallets'](arg1, arg2);
+}
+
 export function ImportMnemonic(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportMnemonic'](arg1, arg2, arg3);
 }
@@ -26,8 +34,16 @@ export function ImportPrivateKey(arg1, arg2) {
   return window['go']['main']['App']['ImportPrivateKey'](arg1, arg2);
 }
 
+export function ImportPrivateKeys(arg1, arg2) {
+  return window['go']['main']['App']['ImportPrivateKeys'](arg1, arg2);
+}
+
 export function InspectOpenSeaDrop(arg1) {
   return window['go']['main']['App']['InspectOpenSeaDrop'](arg1);
+}
+
+export function SetCollectionTasksEnabled(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetCollectionTasksEnabled'](arg1, arg2, arg3);
 }
 
 export function SetTaskEnabled(arg1, arg2) {

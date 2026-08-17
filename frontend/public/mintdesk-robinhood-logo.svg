@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title description">
+  <title id="title">MintDesk Robinhood logo</title>
+  <desc id="description">A chartreuse mint card with an abstract M, layered over green and gold cards on a dark rounded square.</desc>
+  <defs>
+    <linearGradient id="background" x1="170" y1="120" x2="860" y2="930" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#18232D"/>
+      <stop offset="1" stop-color="#0B1118"/>
+    </linearGradient>
+    <linearGradient id="mint" x1="324" y1="238" x2="700" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9D66B"/>
+      <stop offset="0.48" stop-color="#BBD962"/>
+      <stop offset="1" stop-color="#72C98B"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="32" stdDeviation="30" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect x="56" y="56" width="912" height="912" rx="220" fill="url(#background)"/>
+  <rect x="72" y="72" width="880" height="880" rx="204" fill="none" stroke="#31404C" stroke-width="8"/>
+
+  <g filter="url(#shadow)">
+    <rect x="222" y="282" width="420" height="526" rx="76" transform="rotate(-11 432 545)" fill="#17252C" stroke="#66C990" stroke-width="28"/>
+    <rect x="382" y="282" width="420" height="526" rx="76" transform="rotate(11 592 545)" fill="#211F19" stroke="#D9B552" stroke-width="28"/>
+    <rect x="292" y="210" width="440" height="610" rx="88" fill="url(#mint)" stroke="#F3E59A" stroke-width="14"/>
+  </g>
+
+  <path d="M378 402H452L512 514L572 402H646V642H574V526L526 614C520 625 504 625 498 614L450 526V642H378V402Z" fill="#111A22"/>
+  <path d="M512 298L526 330L558 344L526 358L512 390L498 358L466 344L498 330L512 298Z" fill="#111A22"/>
+  <circle cx="512" cy="716" r="18" fill="#111A22" opacity="0.82"/>
+</svg>

@@ -8,6 +8,16 @@ MintDesk is an open-source Wails desktop application and Go toolset for monitori
 
 > **Financial and key-safety warning:** NFT minting can lose funds. Use a dedicated hot wallet with a limited balance. Verify every collection, stage, contract interaction, chain, quantity, and cost limit yourself. Never paste a valuable primary wallet or commit private keys, recovery phrases, keystores, RPC credentials, or signing certificates.
 
+## Donate
+
+If MintDesk is useful to you, you can support its continued open-source development with an EVM-wallet donation.
+
+**EVM address:** `0xd439325794932c3ccd45affa85effe5363af1ca8`
+
+<img src="frontend/public/evm-donation-qr.png" alt="QR code for the MintDesk EVM donation address" width="240">
+
+The QR code contains only the address above. Use an EVM-compatible wallet and network, verify the full address before sending, and confirm that your selected network and token are supported. Blockchain transfers are generally irreversible.
+
 ## Downloads
 
 [GitHub Releases](https://github.com/bizipoopoo/MintDesk/releases) publish these unsigned community builds for every `v*` release tag:
@@ -109,7 +119,7 @@ Each task checks the RPC network ID, simulates the transaction through gas estim
 
 ### Desktop quick start (KUJI example)
 
-This walkthrough covers the complete path from importing a dedicated wallet to creating a public mint task. See the [full desktop guide](docs/desktop-guide.md) for detailed installation notes, troubleshooting, and a pre-flight safety checklist.
+This walkthrough covers the complete path from importing dedicated wallets to creating an automatic multi-stage mint strategy. See the [full desktop guide](docs/desktop-guide.md) for detailed installation notes, troubleshooting, and a pre-flight safety checklist.
 
 > [!CAUTION]
 > [KUJI](https://opensea.io/collection/kuji-723097858/overview) is used only to demonstrate the interface. This is not a recommendation or endorsement. The screenshot was captured on August 17, 2026 (GMT+8); at that time, the collection was **Not verified by OpenSea**, was not marked approved, and had no official website or X account that could be cross-checked. Project pages and mint stages can change. Reconfirm the project identity, contract, chain, schedule, price, and limits before arming a task.
@@ -136,29 +146,31 @@ https://opensea.io/collection/kuji-723097858/overview
 
 Click **Inspect OpenSea**. The app reads the contract, Robinhood Chain, supply, OpenSea verification flags, stage schedule, price, and per-wallet limits. These values cannot be manually overridden in the task form.
 
-![Sanitized MintDesk screenshot inspecting KUJI OpenSea mint stages](docs/images/mintdesk-kuji-inspection.jpg)
+![Sanitized MintDesk screenshot showing the KUJI automatic OpenSea stage strategy](docs/images/mintdesk-kuji-strategy.png)
 
 The screenshot contains only public project information; local wallets and RPC credentials were cropped out. At capture time, MintDesk parsed:
 
-| Stage | Time (GMT+8) | Price | Per-wallet limit | Desktop automation |
+| Stage | Time (GMT+8) | Price | Per-wallet limit | Desktop strategy |
 | --- | --- | --- | --- | --- |
-| GTD | August 18, 2026, 22:00–23:00 | 0.0011 ETH | 3 | Not supported |
-| WL | August 18, 2026, 23:00–August 19, 00:00 | 0.0011 ETH | 2 | Not supported |
-| Public | August 19, 2026, 00:00–01:00 | 0.0011 ETH | 5 | Supported |
+| GTD | August 18, 2026, 22:00–23:00 | 0.0011 ETH | 3 | Automatic allowlist attempt |
+| WL | August 18, 2026, 23:00–August 19, 00:00 | 0.0011 ETH | 2 | Automatic allowlist attempt |
+| Public | August 19, 2026, 00:00–01:00 | 0.0011 ETH | 5 | Automatic remainder |
 
 The contract was `0xBaeb2775D3a14E92264ea5f22Db96eba7766c6c9`, the supply was 2,500, and the Chain ID was `4663`. The app displays times in the computer's local timezone, so confirm that the system clock and timezone are correct.
 
-GTD and WL stages require a wallet-specific OpenSea signature or Merkle proof. Those parameters are not present on the public page, so MintDesk displays these stages but does not allow them to be selected. Desktop automation currently supports only OpenSea SeaDrop **Public (`PUBLIC_SALE`)** stages. It will not guess a proof or silently convert an allowlist task into a public mint.
+MintDesk supports SeaDrop **Signed Presale (`SIGNED_PRESALE`)**, **Merkle Presale (`MERKLE_PRESALE`)**, and **Public (`PUBLIC_SALE`)** stages. The task stores every supported stage instead of forcing one global choice for all wallets. While an allowlist stage is live, MintDesk asks OpenSea for that wallet's exact signed or Merkle calldata, validates the returned collection, SeaDrop target, wallet, quantity, price, time window, stage index, fee recipient, and value, and then simulates it before signing locally. It never invents a signature or proof.
 
-#### 3. Create the Public mint task
+The target is per wallet and is filled chronologically. For example, if the target is 5 and one wallet has a WL allowance of 2, that wallet mints 2 during WL and Public later fills only the remaining 3. A wallet without WL eligibility simply waits for Public and mints up to the remaining target there. This decision is independent for every imported wallet, so a 100-wallet task can contain 3 WL-eligible wallets and 97 Public-only wallets without separate collection tasks.
+
+#### 3. Create the automatic multi-stage task
 
 Complete the fields below the inspection result:
 
 1. **Select local wallets**: choose dedicated hot wallets; the app creates one task per wallet.
-2. **Mint quantity per wallet**: enter the quantity for each wallet. It must not exceed the stage limit, and earlier mints count toward that limit.
+2. **Mint quantity per wallet**: enter the final target for each wallet. It must not exceed the highest wallet limit across the included stages. Earlier on-chain mints count toward this target and the SeaDrop limits.
 3. **Mint monitoring speed**: choose Extreme (100 ms), Fast (500 ms), Slow (2 seconds), or Very slow (5 seconds).
 4. **Maximum fee per gas (Gwei)**: set the highest gas fee you are willing to accept.
-5. **Maximum total cost per wallet (ETH)**: cap the mint price plus worst-case gas for each wallet.
+5. **Maximum total cost per wallet (ETH)**: set a safety cap large enough for the highest possible mint value and every transaction the strategy may need. Each transaction is also checked against this cap immediately before signing.
 6. **Robinhood RPC**: enter a trusted Chain ID 4663 RPC endpoint. Private URLs may contain API keys; never screenshot or commit them to GitHub.
 7. Click **Create collection for N wallets**.
 
@@ -174,15 +186,19 @@ Return to **Overview**, verify **Enabled tasks**, and then:
 
 Future tasks wait on a local timer and connect to the RPC about one minute before the stage starts. The app must stay open, and the computer must remain awake and online. Before broadcasting, MintDesk rechecks the Chain ID, SeaDrop price and schedule, wallet mint count, remaining supply, fee recipient, balance, gas and total-cost caps, and then simulates the transaction.
 
-Each task broadcasts at most one transaction. MintDesk does not automatically resend after an ambiguous broadcast response. Treat the on-chain transaction receipt as the final result. To stop, first click **Stop runner** in **Overview**. You can then use **Disable all**, **Enable all**, or **Delete** for the collection in **Mint tasks**; deleting tasks does not delete encrypted local wallets.
+One wallet strategy can broadcast an allowlist transaction and a later Public remainder transaction. MintDesk waits for the allowlist receipt before calculating the remaining target. It never automatically resends a transaction after an ambiguous broadcast response. Treat on-chain receipts as the final result. Wallet rows inside each saved collection are collapsed by default; use **Show wallets (N)** only when you need the per-wallet detail. To stop, first click **Stop runner** in **Overview**. You can then use **Disable all**, **Enable all**, or **Delete** for the collection in **Mint tasks**; deleting tasks does not delete encrypted local wallets.
 
-The Wails desktop app is specialized for Robinhood Chain OpenSea drops. It supports importing a private key or deriving up to 20 Ethereum addresses from a BIP-39 recovery phrase along the standard `m/44'/60'/0'/0/i` path. Private material is immediately encrypted into the local keystore; it is not added to task JSON.
+The Wails desktop app is specialized for Robinhood Chain OpenSea drops. It supports batch-importing private keys, deriving up to 20 Ethereum addresses from an existing BIP-39 recovery phrase, or generating a new 24-word phrase and a batch of wallets along the standard `m/44'/60'/0'/0/i` path. A generated phrase is returned once for offline backup and is never persisted by MintDesk. Private material is immediately encrypted into the local keystore; it is not added to task JSON.
 
-Creating a desktop task requires only an OpenSea collection/mint URL. The app parses the collection contract, Robinhood chain, supply, OpenSea verification flags, stages, time windows, displayed price, and per-wallet limits. The user then selects any number of imported wallets and a quantity per wallet. One task is created per wallet, so different wallets execute concurrently. A wallet/chain nonce coordinator serializes preparation, simulation, signing, and broadcast for the same wallet.
+Creating a desktop task requires only an OpenSea collection/mint URL. The app parses the collection contract, Robinhood chain, supply, OpenSea verification flags, stages, time windows, displayed price, and per-wallet limits. The user then selects any number of imported wallets and a quantity per wallet. Tasks are managed as collection groups, with collection-level enable, disable, and delete controls. Internally, one execution task is retained per wallet so different wallets can execute concurrently; a wallet/chain nonce coordinator serializes preparation, simulation, signing, and broadcast for the same wallet. Collection-level changes are locked while the runner is active.
 
-`PUBLIC_SALE` stages use the collection's on-chain `AllowedSeaDropUpdated` data and SeaDrop `mintPublic` interface. Immediately before broadcast the app verifies chain ID 4663, reads the on-chain public drop, checks its time window against the selected OpenSea stage, reads the wallet's already-minted count and remaining supply, obtains an allowed fee recipient, calculates value from the on-chain price, enforces the configured gas and total-cost caps, and simulates the transaction.
+`PUBLIC_SALE` stages use the collection's on-chain `AllowedSeaDropUpdated` data and SeaDrop `mintPublic` interface. `SIGNED_PRESALE` and `MERKLE_PRESALE` stages use wallet-specific same-chain transaction data requested from OpenSea only while the stage is live. Immediately before every broadcast the app verifies Chain ID 4663, the SeaDrop target and method, the inspected stage fields, wallet and quantity, remaining wallet allowance and supply, fee recipient, value, balance, gas and total-cost caps, and then simulates the transaction.
 
-OpenSea `SIGNED_PRESALE` and Merkle allowlist stages are displayed but cannot currently be armed. Those stages require wallet-specific signature/proof data that is not present in public page HTML. The app fails closed instead of guessing it or silently sending a public-sale transaction.
+Wallets sharing an RPC endpoint are rate-limited together, and transient pre-broadcast reads retry with bounded backoff. EIP-1559 networks use the latest block base fee plus headroom when estimating and signing; the application checks the wallet balance against the worst-case capped cost before signing. Transaction broadcast itself is never retried automatically because an interrupted RPC response can be ambiguous.
+
+OpenSea tasks offer four on-chain monitoring speeds: Extreme (100 ms), Fast (500 ms), Slow (2 seconds), and Very slow (5 seconds). Existing tasks that stored a whole-second polling interval remain compatible. Shared endpoint throttling still takes precedence when several wallets use the same RPC, so selecting a faster speed does not bypass provider rate-limit protection.
+
+Each wallet strategy keeps a target total and all supported future stages. At an allowlist stage, an ineligible wallet remains enabled and advances to the next stage; an eligible wallet mints only its available allocation. Once that transaction is confirmed, Public mints only the difference between the on-chain minted count and the target. OpenSea quote requests are shared and rate-limited across wallets to avoid a 100-wallet burst.
 
 ```sh
 npm --prefix frontend install
@@ -190,7 +206,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
 wails build
 ```
 
-The resulting app is [build/bin/MintDeskRobinhood.app](build/bin/MintDeskRobinhood.app). Use the explicit **Arm & start** control only after reviewing the parsed OpenSea stage and setting per-wallet cost caps. Armed OpenSea tasks remain on an in-process timer without opening an RPC connection, then begin polling one minute before the verified stage start. Each watcher exits as soon as its task broadcasts, fails, is stopped, or reaches the stage end. The app must remain running and the Mac must be awake near the mint window. The runner sends at most one transaction per task and never retries an ambiguous broadcast automatically.
+The resulting app is [build/bin/MintDeskRobinhood.app](build/bin/MintDeskRobinhood.app). Use the explicit **Arm & start** control only after reviewing every parsed OpenSea stage and setting per-wallet cost caps. Armed OpenSea tasks remain on an in-process timer without opening an RPC connection, then begin polling one minute before the first verified stage. A watcher exits when its target is reached, every stage ends, it fails safely, or it is stopped. The app must remain running and the Mac must be awake near the mint windows. The runner may send one confirmed transaction per eligible stage but never retries an ambiguous broadcast automatically.
 
 ## Continuous integration and releases
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -48,6 +49,11 @@ type Dashboard struct {
 	Running bool       `json:"running"`
 }
 
+type GeneratedWalletBatch struct {
+	Mnemonic  string   `json:"mnemonic"`
+	Addresses []string `json:"addresses"`
+}
+
 type ChainConfig struct {
 	Name    string `json:"name"`
 	ChainID int64  `json:"chainId"`
@@ -55,9 +61,10 @@ type ChainConfig struct {
 }
 
 type SaleGate struct {
-	Function            string `json:"function"`
-	Expect              bool   `json:"expect"`
-	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	Function                 string `json:"function"`
+	Expect                   bool   `json:"expect"`
+	PollIntervalSeconds      int    `json:"pollIntervalSeconds,omitempty"`
+	PollIntervalMilliseconds int    `json:"pollIntervalMilliseconds,omitempty"`
 }
 
 type MintConfig struct {
@@ -123,18 +130,56 @@ func (a *App) Dashboard() (Dashboard, error) {
 
 // ImportPrivateKey encrypts the key in the local keystore and never writes the plaintext to disk.
 func (a *App) ImportPrivateKey(privateKey, password string) (string, error) {
+	addresses, err := a.ImportPrivateKeys([]string{privateKey}, password)
+	if err != nil {
+		return "", err
+	}
+	return addresses[0], nil
+}
+
+// ImportPrivateKeys validates the complete batch before encrypting each unique key.
+func (a *App) ImportPrivateKeys(privateKeys []string, password string) ([]string, error) {
 	if password == "" {
-		return "", errors.New("a local keystore password is required")
+		return nil, errors.New("a local keystore password is required")
 	}
-	key, err := crypto.HexToECDSA(strings.TrimPrefix(strings.TrimSpace(privateKey), "0x"))
-	if err != nil {
-		return "", errors.New("private key is invalid")
+	if len(privateKeys) == 0 {
+		return nil, errors.New("enter at least one private key")
 	}
-	account, err := a.keystore().ImportECDSA(key, password)
-	if err != nil {
-		return "", fmt.Errorf("import encrypted wallet: %w", err)
+	if len(privateKeys) > 100 {
+		return nil, errors.New("import no more than 100 private keys at a time")
 	}
-	return account.Address.Hex(), nil
+	keys := make([]*ecdsa.PrivateKey, 0, len(privateKeys))
+	seen := make(map[common.Address]bool)
+	for index, raw := range privateKeys {
+		key, err := crypto.HexToECDSA(strings.TrimPrefix(strings.TrimSpace(raw), "0x"))
+		if err != nil {
+			return nil, fmt.Errorf("private key %d is invalid", index+1)
+		}
+		address := crypto.PubkeyToAddress(key.PublicKey)
+		if seen[address] {
+			continue
+		}
+		seen[address] = true
+		keys = append(keys, key)
+	}
+	return a.importKeys(keys, password)
+}
+
+func (a *App) importKeys(keys []*ecdsa.PrivateKey, password string) ([]string, error) {
+	result := make([]string, 0, len(keys))
+	for _, key := range keys {
+		address := crypto.PubkeyToAddress(key.PublicKey)
+		account, err := a.keystore().ImportECDSA(key, password)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "already exists") {
+				result = append(result, address.Hex())
+				continue
+			}
+			return nil, fmt.Errorf("import encrypted wallet %s: %w", address.Hex(), err)
+		}
+		result = append(result, account.Address.Hex())
+	}
+	return result, nil
 }
 
 // ImportMnemonic derives m/44'/60'/0'/0/i addresses and stores only encrypted private keys.
@@ -149,7 +194,43 @@ func (a *App) ImportMnemonic(mnemonic, password string, count int) ([]string, er
 	if !bip39.IsMnemonicValid(normalized) {
 		return nil, errors.New("mnemonic is invalid")
 	}
-	seed := bip39.NewSeed(normalized, "")
+	keys, err := deriveMnemonicKeys(normalized, count)
+	if err != nil {
+		return nil, err
+	}
+	return a.importKeys(keys, password)
+}
+
+// GenerateMnemonicWallets creates a new 24-word recovery phrase and stores the
+// derived wallets encrypted. The phrase is returned once and is never persisted.
+func (a *App) GenerateMnemonicWallets(password string, count int) (GeneratedWalletBatch, error) {
+	if password == "" {
+		return GeneratedWalletBatch{}, errors.New("a local keystore password is required")
+	}
+	if count < 1 || count > 20 {
+		return GeneratedWalletBatch{}, errors.New("generate between 1 and 20 addresses at a time")
+	}
+	entropy, err := bip39.NewEntropy(256)
+	if err != nil {
+		return GeneratedWalletBatch{}, fmt.Errorf("generate mnemonic entropy: %w", err)
+	}
+	mnemonic, err := bip39.NewMnemonic(entropy)
+	if err != nil {
+		return GeneratedWalletBatch{}, fmt.Errorf("generate mnemonic: %w", err)
+	}
+	keys, err := deriveMnemonicKeys(mnemonic, count)
+	if err != nil {
+		return GeneratedWalletBatch{}, err
+	}
+	addresses, err := a.importKeys(keys, password)
+	if err != nil {
+		return GeneratedWalletBatch{}, err
+	}
+	return GeneratedWalletBatch{Mnemonic: mnemonic, Addresses: addresses}, nil
+}
+
+func deriveMnemonicKeys(mnemonic string, count int) ([]*ecdsa.PrivateKey, error) {
+	seed := bip39.NewSeed(mnemonic, "")
 	key, err := bip32.NewMasterKey(seed)
 	if err != nil {
 		return nil, err
@@ -164,7 +245,7 @@ func (a *App) ImportMnemonic(mnemonic, password string, count int) ([]string, er
 	if err != nil {
 		return nil, err
 	}
-	result := make([]string, 0, count)
+	result := make([]*ecdsa.PrivateKey, 0, count)
 	for index := 0; index < count; index++ {
 		child, err := key.NewChildKey(uint32(index))
 		if err != nil {
@@ -174,15 +255,7 @@ func (a *App) ImportMnemonic(mnemonic, password string, count int) ([]string, er
 		if err != nil {
 			return nil, err
 		}
-		account, err := a.keystore().ImportECDSA(privateKey, password)
-		if err != nil {
-			if strings.Contains(err.Error(), "already exists") {
-				result = append(result, crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
-				continue
-			}
-			return nil, fmt.Errorf("import derived address %d: %w", index, err)
-		}
-		result = append(result, account.Address.Hex())
+		result = append(result, privateKey)
 	}
 	return result, nil
 }
@@ -225,6 +298,63 @@ func (a *App) SetTaskEnabled(id string, enabled bool) error {
 		}
 	}
 	return errors.New("task not found")
+}
+
+func (a *App) SetCollectionTasksEnabled(chainID int64, contract string, enabled bool) error {
+	if chainID <= 0 || !common.IsHexAddress(contract) {
+		return errors.New("a valid chain ID and collection contract are required")
+	}
+	target := common.HexToAddress(contract)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.running {
+		return errors.New("stop the task runner before changing a collection")
+	}
+	matched := 0
+	for index := range a.tasks {
+		if a.tasks[index].Network.ChainID != chainID || common.HexToAddress(a.tasks[index].Contract) != target {
+			continue
+		}
+		matched++
+		a.tasks[index].Enabled = enabled
+		if enabled {
+			a.tasks[index].Status = "ready"
+			a.tasks[index].LastError = ""
+		}
+	}
+	if matched == 0 {
+		return errors.New("collection tasks not found")
+	}
+	return a.saveLocked()
+}
+
+func (a *App) DeleteCollectionTasks(chainID int64, contract string) (int, error) {
+	if chainID <= 0 || !common.IsHexAddress(contract) {
+		return 0, errors.New("a valid chain ID and collection contract are required")
+	}
+	target := common.HexToAddress(contract)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.running {
+		return 0, errors.New("stop the task runner before deleting a collection")
+	}
+	kept := make([]MintTask, 0, len(a.tasks))
+	deleted := 0
+	for _, task := range a.tasks {
+		if task.Network.ChainID == chainID && common.HexToAddress(task.Contract) == target {
+			deleted++
+			continue
+		}
+		kept = append(kept, task)
+	}
+	if deleted == 0 {
+		return 0, errors.New("collection tasks not found")
+	}
+	a.tasks = kept
+	if err := a.saveLocked(); err != nil {
+		return 0, err
+	}
+	return deleted, nil
 }
 
 // ArmAndRun explicitly unlocks the local keystore for the running process only.
@@ -301,7 +431,7 @@ func (a *App) StopRunner() {
 
 func (a *App) runTask(ctx context.Context, task MintTask, account accounts.Account) {
 	if task.OpenSea != nil {
-		delay, stageEnd, err := openSeaWatchDelay(task.OpenSea.Stage, time.Now())
+		delay, stageEnd, err := openSeaStrategyWatchDelay(task.OpenSea, time.Now())
 		if err != nil {
 			a.recordTask(task.ID, "failed", false, "", err.Error())
 			return
@@ -319,7 +449,7 @@ func (a *App) runTask(ctx context.Context, task MintTask, account accounts.Accou
 		// A sleeping Mac can wake after both the timer and the mint stage have
 		// expired. Do not open an RPC connection for a stage that is already over.
 		if !time.Now().Before(stageEnd) {
-			a.recordTask(task.ID, "failed", false, "", "OpenSea 所选 mint 阶段已结束")
+			a.recordTask(task.ID, "failed", false, "", "all selected OpenSea mint stages have ended")
 			return
 		}
 	}
@@ -330,7 +460,9 @@ func (a *App) runTask(ctx context.Context, task MintTask, account accounts.Accou
 		return
 	}
 	defer client.Close()
-	chainID, err := client.ChainID(ctx)
+	chainID, err := rpcRead(ctx, task.Network.RPCURL, func() (*big.Int, error) {
+		return client.ChainID(ctx)
+	})
 	if err != nil || chainID.Int64() != task.Network.ChainID {
 		message := "RPC chain ID does not match the task"
 		if err != nil {
@@ -344,9 +476,9 @@ func (a *App) runTask(ctx context.Context, task MintTask, account accounts.Accou
 		return
 	}
 	contract := common.HexToAddress(task.Contract)
-	interval := time.Duration(task.SaleGate.PollIntervalSeconds) * time.Second
+	interval := taskPollInterval(task.SaleGate)
 	for {
-		active, err := appSaleState(ctx, client, contract, task.SaleGate.Function)
+		active, err := appSaleState(ctx, client, task.Network.RPCURL, contract, task.SaleGate.Function)
 		a.checkedTask(task.ID)
 		if err == nil && active == task.SaleGate.Expect {
 			hash, err := a.broadcastTask(ctx, client, account, task, chainID)
@@ -390,23 +522,49 @@ func (a *App) broadcastPreparedLocked(ctx context.Context, client *ethclient.Cli
 	if err != nil {
 		return "", err
 	}
-	gasPrice, err := client.SuggestGasPrice(ctx)
+	header, err := rpcRead(ctx, task.Network.RPCURL, func() (*types.Header, error) {
+		return client.HeaderByNumber(ctx, nil)
+	})
+	if err != nil {
+		return "", fmt.Errorf("read latest block fees: %w", err)
+	}
+	feeQuote, err := appFeeQuote(ctx, client, task.Network.RPCURL, header)
 	if err != nil {
 		return "", err
 	}
-	if gasPrice.Cmp(maxGasPrice) > 0 {
-		return "", fmt.Errorf("suggested gas price %s exceeds the task cap %s", gasPrice, maxGasPrice)
+	if feeQuote.maxFeePerGas().Cmp(maxGasPrice) > 0 {
+		return "", fmt.Errorf("required maximum fee per gas %s exceeds the task cap %s", feeQuote.maxFeePerGas(), maxGasPrice)
 	}
-	gasLimit, err := client.EstimateGas(ctx, ethereum.CallMsg{From: account.Address, To: &to, Value: value, Data: data, GasPrice: gasPrice})
+	call := ethereum.CallMsg{From: account.Address, To: &to, Value: value, Data: data}
+	if feeQuote.dynamic {
+		call.GasFeeCap = feeQuote.feeCap
+		call.GasTipCap = feeQuote.tipCap
+	} else {
+		call.GasPrice = feeQuote.gasPrice
+	}
+	gasLimit, err := rpcRead(ctx, task.Network.RPCURL, func() (uint64, error) {
+		return client.EstimateGas(ctx, call)
+	})
 	if err != nil {
 		return "", fmt.Errorf("mint simulation failed: %w", err)
 	}
-	totalCost := new(big.Int).Add(value, new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasLimit)))
+	totalCost := new(big.Int).Add(value, new(big.Int).Mul(feeQuote.maxFeePerGas(), new(big.Int).SetUint64(gasLimit)))
 	if totalCost.Cmp(maxTotalCost) > 0 {
 		return "", fmt.Errorf("estimated total cost %s exceeds the task cap %s", totalCost, maxTotalCost)
 	}
+	balance, err := rpcRead(ctx, task.Network.RPCURL, func() (*big.Int, error) {
+		return client.BalanceAt(ctx, account.Address, nil)
+	})
+	if err != nil {
+		return "", fmt.Errorf("read wallet balance: %w", err)
+	}
+	if balance.Cmp(totalCost) < 0 {
+		return "", fmt.Errorf("wallet balance %s is below the required worst-case total %s", balance, totalCost)
+	}
 
-	pendingNonce, err := client.PendingNonceAt(ctx, account.Address)
+	pendingNonce, err := rpcRead(ctx, task.Network.RPCURL, func() (uint64, error) {
+		return client.PendingNonceAt(ctx, account.Address)
+	})
 	if err != nil {
 		return "", err
 	}
@@ -414,9 +572,20 @@ func (a *App) broadcastPreparedLocked(ctx context.Context, client *ethclient.Cli
 		state.next = &pendingNonce
 	}
 	nonce := *state.next
-	tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
+	var tx *types.Transaction
+	if feeQuote.dynamic {
+		tx = types.NewTx(&types.DynamicFeeTx{
+			ChainID: chainID, Nonce: nonce, GasTipCap: feeQuote.tipCap, GasFeeCap: feeQuote.feeCap,
+			Gas: gasLimit, To: &to, Value: value, Data: data,
+		})
+	} else {
+		tx = types.NewTransaction(nonce, to, value, gasLimit, feeQuote.gasPrice, data)
+	}
 	signed, err := a.keystore().SignTx(account, tx, chainID)
 	if err != nil {
+		return "", err
+	}
+	if err := sharedRPCRequests.wait(ctx, task.Network.RPCURL); err != nil {
 		return "", err
 	}
 	if err := client.SendTransaction(ctx, signed); err != nil {
@@ -574,8 +743,8 @@ func validateAppTask(task MintTask) error {
 	if task.Network.Name == "" || task.Network.ChainID <= 0 || task.Network.RPCURL == "" {
 		return errors.New("network name, chain ID, and RPC URL are required")
 	}
-	if !strings.HasSuffix(task.SaleGate.Function, "()") || strings.Contains(task.SaleGate.Function, " ") || task.SaleGate.PollIntervalSeconds < 2 {
-		return errors.New("sale gate must be a no-argument boolean function, checked every 2 seconds or longer")
+	if !strings.HasSuffix(task.SaleGate.Function, "()") || strings.Contains(task.SaleGate.Function, " ") || taskPollInterval(task.SaleGate) < 100*time.Millisecond {
+		return errors.New("sale gate must be a no-argument boolean function, checked every 100 milliseconds or longer")
 	}
 	value, ok := new(big.Int).SetString(task.Mint.ValueWei, 10)
 	if !ok || value.Sign() < 0 {
@@ -597,8 +766,60 @@ func validateAppTask(task MintTask) error {
 	return nil
 }
 
-func appSaleState(ctx context.Context, client *ethclient.Client, contract common.Address, signature string) (bool, error) {
-	result, err := client.CallContract(ctx, ethereum.CallMsg{To: &contract, Data: crypto.Keccak256([]byte(signature))[:4]}, nil)
+func taskPollInterval(gate SaleGate) time.Duration {
+	if gate.PollIntervalMilliseconds > 0 {
+		return time.Duration(gate.PollIntervalMilliseconds) * time.Millisecond
+	}
+	return time.Duration(gate.PollIntervalSeconds) * time.Second
+}
+
+type appTransactionFeeQuote struct {
+	dynamic  bool
+	gasPrice *big.Int
+	feeCap   *big.Int
+	tipCap   *big.Int
+}
+
+func (quote appTransactionFeeQuote) maxFeePerGas() *big.Int {
+	if quote.dynamic {
+		return quote.feeCap
+	}
+	return quote.gasPrice
+}
+
+func appFeeQuote(ctx context.Context, client *ethclient.Client, endpoint string, header *types.Header) (appTransactionFeeQuote, error) {
+	if header != nil && header.BaseFee != nil {
+		tip, err := rpcRead(ctx, endpoint, func() (*big.Int, error) {
+			return client.SuggestGasTipCap(ctx)
+		})
+		if err != nil {
+			return appTransactionFeeQuote{}, fmt.Errorf("suggest priority fee: %w", err)
+		}
+		if tip.Sign() < 0 {
+			return appTransactionFeeQuote{}, errors.New("RPC returned a negative priority fee")
+		}
+		// Two blocks of base-fee headroom prevents a normal base-fee increase
+		// between simulation and broadcast from invalidating the transaction.
+		return appDynamicFeeQuote(header.BaseFee, tip), nil
+	}
+	gasPrice, err := rpcRead(ctx, endpoint, func() (*big.Int, error) {
+		return client.SuggestGasPrice(ctx)
+	})
+	if err != nil {
+		return appTransactionFeeQuote{}, fmt.Errorf("suggest gas price: %w", err)
+	}
+	return appTransactionFeeQuote{gasPrice: gasPrice}, nil
+}
+
+func appDynamicFeeQuote(baseFee, tip *big.Int) appTransactionFeeQuote {
+	feeCap := new(big.Int).Add(new(big.Int).Mul(baseFee, big.NewInt(2)), tip)
+	return appTransactionFeeQuote{dynamic: true, feeCap: feeCap, tipCap: new(big.Int).Set(tip)}
+}
+
+func appSaleState(ctx context.Context, client *ethclient.Client, endpoint string, contract common.Address, signature string) (bool, error) {
+	result, err := rpcRead(ctx, endpoint, func() ([]byte, error) {
+		return client.CallContract(ctx, ethereum.CallMsg{To: &contract, Data: crypto.Keccak256([]byte(signature))[:4]}, nil)
+	})
 	if err != nil {
 		return false, err
 	}

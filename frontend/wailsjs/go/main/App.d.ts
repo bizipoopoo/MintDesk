@@ -10,11 +10,19 @@ export function CreateTask(arg1:main.MintTask):Promise<main.MintTask>;
 
 export function Dashboard():Promise<main.Dashboard>;
 
+export function DeleteCollectionTasks(arg1:number,arg2:string):Promise<number>;
+
+export function GenerateMnemonicWallets(arg1:string,arg2:number):Promise<main.GeneratedWalletBatch>;
+
 export function ImportMnemonic(arg1:string,arg2:string,arg3:number):Promise<Array<string>>;
 
 export function ImportPrivateKey(arg1:string,arg2:string):Promise<string>;
 
+export function ImportPrivateKeys(arg1:Array<string>,arg2:string):Promise<Array<string>>;
+
 export function InspectOpenSeaDrop(arg1:string):Promise<main.OpenSeaDrop>;
+
+export function SetCollectionTasksEnabled(arg1:number,arg2:string,arg3:boolean):Promise<void>;
 
 export function SetTaskEnabled(arg1:string,arg2:boolean):Promise<void>;
 
