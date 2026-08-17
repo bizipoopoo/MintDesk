@@ -107,6 +107,8 @@ Each task checks the RPC network ID, simulates the transaction through gas estim
 
 ## Desktop app
 
+New to the desktop app? Follow the illustrated [桌面版使用指南](docs/desktop-guide.md), which walks through wallet-vault setup, OpenSea inspection, public-stage task creation, arming, stopping, and troubleshooting with KUJI as a concrete example.
+
 The Wails desktop app is specialized for Robinhood Chain OpenSea drops. It supports importing a private key or deriving up to 20 Ethereum addresses from a BIP-39 recovery phrase along the standard `m/44'/60'/0'/0/i` path. Private material is immediately encrypted into the local keystore; it is not added to task JSON.
 
 Creating a desktop task requires only an OpenSea collection/mint URL. The app parses the collection contract, Robinhood chain, supply, OpenSea verification flags, stages, time windows, displayed price, and per-wallet limits. The user then selects any number of imported wallets and a quantity per wallet. One task is created per wallet, so different wallets execute concurrently. A wallet/chain nonce coordinator serializes preparation, simulation, signing, and broadcast for the same wallet.
