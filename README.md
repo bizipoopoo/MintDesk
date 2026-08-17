@@ -107,7 +107,74 @@ Each task checks the RPC network ID, simulates the transaction through gas estim
 
 ## Desktop app
 
-New to the desktop app? Follow the illustrated [桌面版使用指南](docs/desktop-guide.md), which walks through wallet-vault setup, OpenSea inspection, public-stage task creation, arming, stopping, and troubleshooting with KUJI as a concrete example.
+### 桌面版快速使用说明（KUJI 示例）
+
+下面直接演示从导入专用钱包到创建公开 mint 任务的完整流程。更详细的安装、故障排查和安全清单见 [桌面版完整指南](docs/desktop-guide.md)。
+
+> [!CAUTION]
+> [KUJI](https://opensea.io/collection/kuji-723097858/overview) 只作为界面示例，不代表推荐或背书。截图采集于 2026-08-17（GMT+8）；当时该 collection 显示为 **Not verified by OpenSea**、未标记 approved，且没有可交叉核对的官方官网或 X 链接。项目页面和阶段可能变化，启动任务前必须重新核对项目身份、合约、链、时间、价格和限额。
+
+#### 1. 下载并建立本地钱包保险库
+
+从 [GitHub Releases](https://github.com/bizipoopoo/MintDesk/releases) 下载对应系统的版本。当前社区构建未经过 Apple notarization 或商业 Windows 代码签名；只有确认 Release 来源和校验信息后，才绕过 Gatekeeper 或 SmartScreen 提示。
+
+打开 **Wallets**，选择一种方式添加钱包：
+
+- **Private keys**：每行一个私钥，可批量导入。
+- **Import phrase**：从已有助记词派生 1–20 个 EVM 地址。
+- **Generate**：生成新的 24 词助记词，并按 `m/44'/60'/0'/0/i` 派生地址。
+
+设置 **Keystore password** 后导入。私钥会写入本机加密 keystore，任务数据只保存公开地址。新生成的助记词只显示一次，请离线备份。仅使用余额受限的专用热钱包，不要导入主钱包。
+
+#### 2. 检查 KUJI OpenSea 页面
+
+打开 **Mint tasks**，粘贴：
+
+```text
+https://opensea.io/collection/kuji-723097858/overview
+```
+
+点击 **Inspect OpenSea**。应用会读取合约、Robinhood Chain、供应量、OpenSea 验证标记、阶段时间、价格和每钱包限额，这些值不能在任务表单中手工覆盖。
+
+![MintDesk 检查 KUJI OpenSea 铸造阶段的脱敏截图](docs/images/mintdesk-kuji-inspection.jpg)
+
+截图只包含公开项目信息，已裁掉本地钱包和 RPC 凭据。采集时解析结果为：
+
+| 阶段 | 时间（GMT+8） | 价格 | 每钱包限额 | 桌面自动化 |
+| --- | --- | --- | --- | --- |
+| GTD | 2026-08-18 22:00–23:00 | 0.0011 ETH | 3 | 不支持 |
+| WL | 2026-08-18 23:00–2026-08-19 00:00 | 0.0011 ETH | 2 | 不支持 |
+| Public | 2026-08-19 00:00–01:00 | 0.0011 ETH | 5 | 支持 |
+
+合约为 `0xBaeb2775D3a14E92264ea5f22Db96eba7766c6c9`，供应量为 2,500，Chain ID 为 `4663`。应用按电脑本地时区显示时间，请确认系统时钟和时区正确。
+
+GTD/WL 需要与钱包绑定的 OpenSea 签名或 Merkle proof，公开页面没有这些参数，因此会显示但不能选择。当前桌面自动化只支持 OpenSea SeaDrop 的 **Public (`PUBLIC_SALE`)** 阶段，不会猜测 proof 或把 allowlist 任务改成 public mint。
+
+#### 3. 创建 Public mint 任务
+
+在检查结果下方完成配置：
+
+1. **Select local wallets**：选择专用热钱包；每个钱包生成一个独立任务。
+2. **Mint quantity per wallet**：填写每钱包数量，不得超过阶段限额；以前 mint 的数量也占用限额。
+3. **Mint monitoring speed**：Extreme 100 ms、Fast 500 ms、Slow 2 秒或 Very slow 5 秒。
+4. **Maximum fee per gas (Gwei)**：设置可接受的最高 gas fee。
+5. **Maximum total cost per wallet (ETH)**：限制每钱包的 mint 价格加最坏情况 gas 总成本。
+6. **Robinhood RPC**：填写可信的 Chain ID 4663 RPC；私人 URL 可能包含 API key，不要截图或提交到 GitHub。
+7. 点击 **Create collection for N wallets**。
+
+多个钱包共用 RPC 时会统一限速；更快的监控速度不会绕过服务商限流。出现超时或 `429` 时，降低速度或更换可靠端点。
+
+#### 4. Arm、运行和停止
+
+回到 **Overview**，确认 **Enabled tasks** 后：
+
+1. 输入 keystore 密码。
+2. 勾选 **I understand this may broadcast real transactions.**。
+3. 点击 **Arm & start**。
+
+未来任务先在本地等待，阶段开始前约一分钟才连接 RPC。应用必须保持运行，电脑必须保持唤醒和联网。广播前会重新核对 Chain ID、SeaDrop 价格和时间、钱包已 mint 数量、剩余供应量、fee recipient、余额、gas/总成本上限，并模拟交易。
+
+每个任务最多广播一笔交易；广播后响应不明确时不会自动重发。最终结果以链上交易回执为准。需要中止时先在 **Overview** 点击 **Stop runner**，然后可在 **Mint tasks** 对 collection 使用 **Disable all**、**Enable all** 或 **Delete**；删除任务不会删除本地加密钱包。
 
 The Wails desktop app is specialized for Robinhood Chain OpenSea drops. It supports importing a private key or deriving up to 20 Ethereum addresses from a BIP-39 recovery phrase along the standard `m/44'/60'/0'/0/i` path. Private material is immediately encrypted into the local keystore; it is not added to task JSON.
 
