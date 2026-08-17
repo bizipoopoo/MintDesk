@@ -1,151 +1,151 @@
-# MintDesk Robinhood 桌面版使用指南
+# MintDesk Robinhood Desktop Guide
 
-本指南以 OpenSea 上的 [KUJI](https://opensea.io/collection/kuji-723097858/overview) 页面为例，演示从检查项目到创建、启动和停止公开铸造任务的完整流程。
+This guide uses the [KUJI OpenSea page](https://opensea.io/collection/kuji-723097858/overview) to demonstrate the complete workflow for inspecting a project, creating a public mint task, arming the runner, and stopping or removing tasks.
 
 > [!CAUTION]
-> KUJI 只用于说明软件界面，不代表 MintDesk、维护者或本文对该项目的推荐或背书。截图采集于 2026-08-17（GMT+8）；项目页面、合约和铸造阶段可能随时变化。截图中的 KUJI 页面当时显示为 **Not verified by OpenSea**，并且没有可用于核对团队身份的公开官网或 X 链接。使用前必须独立核对项目身份、官方公告、合约、链、阶段、价格和钱包限额。
+> KUJI is used only to demonstrate the interface. This is not a recommendation or endorsement by MintDesk, its maintainers, or this guide. The screenshot was captured on August 17, 2026 (GMT+8); project pages, contracts, and mint stages can change at any time. At capture time, KUJI was **Not verified by OpenSea** and had no public official website or X link that could be used to verify the team. Independently verify the project identity, official announcement, contract, chain, stage, price, and wallet limit before use.
 
-## 1. 下载和首次启动
+## 1. Download and launch the app
 
-从仓库的 [GitHub Releases](https://github.com/bizipoopoo/MintDesk/releases) 下载对应系统的安装包：
+Download the appropriate package from [GitHub Releases](https://github.com/bizipoopoo/MintDesk/releases):
 
-- macOS：`MintDeskRobinhood-macOS-universal.zip`，同时支持 Apple Silicon 和 Intel。
-- Windows：`MintDeskRobinhood-Windows-x64-Setup.exe` 或 portable ZIP。
+- macOS: `MintDeskRobinhood-macOS-universal.zip` for Apple Silicon and Intel Macs.
+- Windows: `MintDeskRobinhood-Windows-x64-Setup.exe` or the portable ZIP.
 
-当前社区构建没有 Apple notarization 或商业 Windows 代码签名。运行前先确认下载来源是本仓库的 Release，并核对 Release 中提供的校验信息。只有在确认文件来源后，才使用 macOS 的“右键 → 打开”/“隐私与安全性 → 仍要打开”，或 Windows SmartScreen 的“更多信息”继续运行。
+Community builds are currently ad-hoc signed but not Apple-notarized, and Windows builds do not have a commercial code-signing certificate. Confirm that the file came from this repository's Release page and verify any published checksums before running it. Only after verifying the source should you use macOS **Control-click → Open** or **Privacy & Security → Open Anyway**, or Windows SmartScreen **More info**.
 
-也可以按 [README 的构建说明](../README.md#desktop-app) 从源码自行构建。
+You can also [build the desktop app from source](../README.md#desktop-app).
 
-## 2. 建立本地钱包保险库
+## 2. Create a local wallet vault
 
-打开左侧 **Wallets**。桌面版提供三种方式：
+Open **Wallets** in the left sidebar. The desktop app supports three wallet workflows:
 
-1. **Private keys**：每行粘贴一个专用热钱包私钥。
-2. **Import phrase**：从已有助记词派生 1–20 个 EVM 地址。
-3. **Generate**：生成新的 24 词助记词，并按 `m/44'/60'/0'/0/i` 派生 1–20 个地址。
+1. **Private keys**: paste one dedicated hot-wallet private key per line.
+2. **Import phrase**: derive 1–20 EVM addresses from an existing recovery phrase.
+3. **Generate**: create a new 24-word recovery phrase and derive 1–20 addresses at `m/44'/60'/0'/0/i`.
 
-输入 **Keystore password** 后导入。私钥会立即写入本机加密 keystore，任务 JSON 只保存公开地址；软件不会把明文私钥写入任务数据。新生成的助记词只显示一次，MintDesk 不会保存它，请离线备份后再从屏幕清除。
+Enter a **Keystore password** and import or generate the wallets. Private keys are immediately written to the encrypted local keystore; task JSON contains only public wallet addresses. A newly generated recovery phrase is displayed once and is not persisted by MintDesk. Back it up offline before clearing it from the screen.
 
-安全建议：
+Wallet safety rules:
 
-- 只使用余额受限、专门用于 mint 的热钱包，不要导入主钱包或长期资产钱包。
-- 不要截图、提交或分享私钥、助记词、keystore 密码和带 API key 的 RPC URL。
-- keystore 密码不能证明某个 NFT 项目安全，它只负责解锁本地签名。
+- Use only dedicated hot wallets with limited balances. Never import a primary wallet or a wallet holding long-term assets.
+- Never screenshot, commit, or share private keys, recovery phrases, the keystore password, or an RPC URL containing an API key.
+- A keystore password protects local signing material; it does not prove that an NFT project or contract is safe.
 
-## 3. 用 KUJI 检查 OpenSea mint 信息
+## 3. Inspect the KUJI OpenSea mint
 
-打开左侧 **Mint tasks**，把下面的 URL 粘贴到 **OpenSea mint URL**：
+Open **Mint tasks** and paste this URL into **OpenSea mint URL**:
 
 ```text
 https://opensea.io/collection/kuji-723097858/overview
 ```
 
-点击 **Inspect OpenSea**。MintDesk 会读取 OpenSea 页面中的合约、链、供应量、验证标记、阶段时间、价格和每钱包限额；这些值不能在任务表单中手工覆盖。
+Click **Inspect OpenSea**. MintDesk reads the collection contract, chain, supply, OpenSea verification flags, stage schedule, displayed price, and per-wallet limits. These inspected values cannot be manually overridden in the task form.
 
-![MintDesk 检查 KUJI OpenSea 铸造阶段的脱敏截图](images/mintdesk-kuji-inspection.jpg)
+![Sanitized MintDesk screenshot inspecting KUJI OpenSea mint stages](images/mintdesk-kuji-inspection.jpg)
 
-截图只保留公开项目信息，已裁掉本地钱包列表和 RPC 凭据。采集时界面解析到：
+The screenshot contains only public project information; local wallets and RPC credentials were cropped out. At capture time, the interface showed:
 
-| 项目 | 界面显示值 |
+| Field | Inspected value |
 | --- | --- |
-| 合约 | `0xBaeb2775D3a14E92264ea5f22Db96eba7766c6c9` |
-| 链 | Robinhood Chain，Chain ID `4663` |
-| 供应量 | `2,500` |
-| GTD | 2026-08-18 22:00–23:00（GMT+8），`0.0011 ETH`，每钱包最多 3 |
-| WL | 2026-08-18 23:00–2026-08-19 00:00（GMT+8），`0.0011 ETH`，每钱包最多 2 |
-| Public | 2026-08-19 00:00–01:00（GMT+8），`0.0011 ETH`，每钱包最多 5 |
-| OpenSea 标记 | 未验证、未标记为 approved |
+| Contract | `0xBaeb2775D3a14E92264ea5f22Db96eba7766c6c9` |
+| Chain | Robinhood Chain, Chain ID `4663` |
+| Supply | `2,500` |
+| GTD | August 18, 2026, 22:00–23:00 GMT+8; `0.0011 ETH`; maximum 3 per wallet |
+| WL | August 18, 2026, 23:00–August 19, 00:00 GMT+8; `0.0011 ETH`; maximum 2 per wallet |
+| Public | August 19, 2026, 00:00–01:00 GMT+8; `0.0011 ETH`; maximum 5 per wallet |
+| OpenSea flags | Not verified and not marked approved |
 
-应用按照电脑的本地时区显示时间。跨时区使用时，应同时对照 OpenSea 和项目官方公告，确认电脑的日期、时间和时区设置正确。
+The app displays times in the computer's local timezone. When working across timezones, compare the app with OpenSea and the project's official announcement, and confirm that the computer's clock and timezone are correct.
 
-### 为什么 GTD 和 WL 不能选择
+### Why GTD and WL cannot be selected
 
-KUJI 的 GTD/WL 是 allowlist 阶段，需要与具体钱包绑定的 OpenSea 签名或 Merkle proof。公开页面没有这些私有参数，所以 MintDesk 会显示阶段，但禁用自动任务。软件不会猜测 proof，也不会把 allowlist 任务悄悄改成 public mint。
+KUJI's GTD and WL stages are allowlist stages. They require a wallet-specific OpenSea signature or Merkle proof, and those private parameters are not available in the public page HTML. MintDesk displays the stages but disables automatic task creation for them. It will not guess a proof or silently convert an allowlist task into a public mint.
 
-当前桌面自动化只支持 OpenSea SeaDrop 的 **Public (`PUBLIC_SALE`)** 阶段。KUJI 示例中，只有 **Public stage** 可以用于创建任务。
+Desktop automation currently supports only OpenSea SeaDrop **Public (`PUBLIC_SALE`)** stages. In this example, only **Public stage** can be used to create an automatic task.
 
-## 4. 创建 Public mint 任务
+## 4. Create a Public mint task
 
-检查结果无误后，在同一页继续向下填写：
+After verifying the inspection result, complete the remaining fields:
 
-1. **Select local wallets**：选择要使用的专用热钱包。每个钱包会生成一个独立执行任务。
-2. **Collection task name**：保留项目名或填写便于识别的名称。
-3. **Mint quantity per wallet**：填写每个钱包的数量。不得超过阶段总限额；钱包以前已经 mint 的数量也会占用限额。
-4. **Mint monitoring speed**：
-   - Extreme：100 ms
-   - Fast：500 ms
-   - Slow：2 秒
-   - Very slow：5 秒
-5. **Maximum fee per gas (Gwei)**：你愿意接受的最高 gas fee 上限。
-6. **Maximum total cost per wallet (ETH)**：每个钱包允许的 `mint 价格 + 最坏情况 gas` 总上限。建议必须设置，并留出合理 gas 空间。
-7. **Robinhood RPC**：使用可信的 Robinhood Chain RPC。公共端点可能限流；私人 RPC URL 可能包含 API key，不要截图或提交到 GitHub。
-8. 点击 **Create collection for N wallets**。
+1. **Select local wallets**: choose the dedicated hot wallets to use. MintDesk creates one execution task per wallet.
+2. **Collection task name**: keep the inspected project name or enter a clear local label.
+3. **Mint quantity per wallet**: enter the quantity for each wallet. It must not exceed the stage limit, and any earlier mints by that wallet count toward the limit.
+4. **Mint monitoring speed**:
+   - Extreme: 100 ms
+   - Fast: 500 ms
+   - Slow: 2 seconds
+   - Very slow: 5 seconds
+5. **Maximum fee per gas (Gwei)**: set the highest gas fee you are willing to accept.
+6. **Maximum total cost per wallet (ETH)**: cap the mint price plus worst-case gas for each wallet. Set this deliberately and leave enough room for reasonable gas.
+7. **Robinhood RPC**: use a trusted Robinhood Chain RPC endpoint. Public endpoints may rate-limit polling. Private RPC URLs may contain API keys, so never screenshot or commit them.
+8. Click **Create collection for N wallets**.
 
-多个钱包共用一个 RPC 时，MintDesk 会统一限速。更快的监控速度不会绕过 RPC 服务商的限流保护；出现频繁超时或 `429` 时，应换用可靠端点或降低速度。
+Wallets sharing one RPC endpoint are rate-limited together. Choosing a faster monitoring speed does not bypass provider protection. If requests time out or return `429`, choose a slower speed or a more reliable endpoint.
 
-## 5. 最后复核并启动
+## 5. Review and arm the runner
 
-回到 **Overview**，确认 **Enabled tasks** 数量和任务信息正确，然后：
+Return to **Overview**, verify the **Enabled tasks** count and task details, and then:
 
-1. 输入创建钱包保险库时使用的 **Keystore password**。
-2. 勾选 **I understand this may broadcast real transactions.**。
-3. 点击 **Arm & start**。
+1. Enter the **Keystore password** used for the local wallet vault.
+2. Select **I understand this may broadcast real transactions.**
+3. Click **Arm & start**.
 
-这一步会让已启用任务具备真实广播权限。未来任务在本地计时，通常到阶段开始前 1 分钟才连接 RPC 并开始轮询。应用必须保持运行，电脑在 mint 窗口附近必须保持唤醒和联网。
+This gives enabled tasks permission to broadcast real transactions. Future tasks wait on a local timer and normally connect to the RPC one minute before the selected stage starts. The app must remain open, and the computer must stay awake and online around the mint window.
 
-广播前，MintDesk 会重新检查：
+Immediately before broadcast, MintDesk rechecks:
 
-- RPC 的 Chain ID 是否为 `4663`；
-- SeaDrop 公开阶段的价格和开始/结束时间；
-- 当前钱包已经 mint 的数量和剩余供应量；
-- fee recipient、钱包余额、gas 上限和总成本上限；
-- 交易是否能通过 gas estimate/simulation。
+- that the RPC Chain ID is `4663`;
+- the on-chain SeaDrop public price and start/end times;
+- the wallet's existing mint count and the collection's remaining supply;
+- the allowed fee recipient, wallet balance, gas cap, and total-cost cap;
+- whether the transaction passes gas estimation and simulation.
 
-每个任务最多广播一笔交易。RPC 在广播后返回超时可能意味着“结果不确定”，软件不会自动重发，以避免重复交易。广播不等于 mint 成功，最终状态以 Robinhood Chain 浏览器上的交易回执为准。
+Each task broadcasts at most one transaction. An RPC timeout after broadcast can leave the result ambiguous, so MintDesk does not automatically resend the transaction. Broadcast does not guarantee a successful mint; verify the final transaction receipt on a Robinhood Chain explorer.
 
-## 6. 停止、禁用和删除
+## 6. Stop, disable, or delete tasks
 
-- 运行中在 **Overview** 点击 **Stop runner**，停止当前 watcher。
-- 停止 runner 后，在 **Mint tasks** 可对整个 collection 使用 **Disable all** 或 **Enable all**。
-- **Delete** 会删除该 collection 下的所有钱包任务，但不会删除本地加密钱包。
-- 任务在广播、失败、手动停止或阶段结束后会停止 watcher。再次启用前先检查交易回执和失败原因，不要因为界面暂时没有回执就重复广播。
+- While the runner is active, click **Stop runner** in **Overview** to stop the current watchers.
+- After stopping the runner, use **Disable all** or **Enable all** for a collection in **Mint tasks**.
+- **Delete** removes every wallet task in that collection but does not delete encrypted local wallets.
+- A watcher stops after broadcast, failure, a manual stop, or the stage end. Review the transaction receipt and failure reason before enabling it again. Never rebroadcast only because the interface has not yet shown a receipt.
 
-runner 运行时，collection 的启用、禁用和删除会被锁定；先停止 runner 再修改。
+Collection enable, disable, and delete controls are locked while the runner is active. Stop the runner before changing a collection.
 
-## 7. 常见问题
+## 7. Troubleshooting
 
-**Inspect OpenSea 失败或没有阶段**
+**Inspect OpenSea fails or no stages appear**
 
-确认 URL 是 OpenSea collection/mint 页面、网络可访问，并点击 **Refresh** 后重试。如果页面没有公开完整阶段，MintDesk 不会自行推断。
+Confirm that the URL is an OpenSea collection or mint page and that OpenSea is reachable. Click **Refresh** and try again. If the page does not publish a complete stage, MintDesk will not infer one.
 
-**阶段能看到，但单选按钮不可用**
+**A stage is visible but its radio button is disabled**
 
-该阶段大概率需要钱包专属签名或 Merkle proof。当前版本只自动执行公开 SeaDrop 阶段。
+The stage probably requires a wallet-specific signature or Merkle proof. The current version automates only public SeaDrop stages.
 
-**Create collection 按钮不可用**
+**Create collection is disabled**
 
-至少选择一个本地钱包，并确认已经选中受支持的 Public 阶段。
+Select at least one imported local wallet and confirm that a supported Public stage is selected.
 
-**任务没有提前连接 RPC**
+**The task does not connect to the RPC far in advance**
 
-这是预期行为。未来任务先在本地等待，阶段开始前约 1 分钟才连接 RPC。
+This is expected. Future tasks wait locally and connect about one minute before the stage starts.
 
-**到时间没有广播**
+**Nothing broadcasts when the stage begins**
 
-依次检查应用是否仍在运行、电脑是否唤醒、任务是否 enabled、runner 是否 armed、RPC 是否可用、钱包余额是否覆盖最坏情况总成本，以及 gas/总成本上限是否过低。
+Check that the app is still open, the computer is awake, the task is enabled, the runner is armed, the RPC is available, the wallet balance covers the worst-case total, and the gas and total-cost caps are not too low.
 
-**OpenSea 信息和项目公告冲突**
+**OpenSea and the project's announcement disagree**
 
-不要启动。先通过项目官方账号、官网、OpenSea 页面和链上合约交叉核实。仅有粉丝数、付费认证、转发或第三方推广不能证明项目真实性。
+Do not arm the task. Cross-check the official project account, official website, OpenSea page, and on-chain contract. Follower counts, paid verification, reposts, and third-party promotion are not proof of authenticity.
 
-## 启动前检查清单
+## Pre-flight checklist
 
-- [ ] 使用的是专用低余额热钱包。
-- [ ] 已从可信的一手来源核对项目身份和官方链接。
-- [ ] OpenSea 合约与官方公布的合约完全一致。
-- [ ] 链为 Robinhood Chain，Chain ID 为 `4663`。
-- [ ] Public 阶段时间、价格、数量和每钱包限额一致。
-- [ ] 电脑时区和系统时间正确。
-- [ ] gas fee 与每钱包总成本上限符合自己的预算。
-- [ ] RPC 来源可信，且没有把 RPC API key 分享或提交到仓库。
-- [ ] 明白 **Arm & start** 可能广播真实交易，并已准备在链上核对回执。
+- [ ] I am using a dedicated hot wallet with a limited balance.
+- [ ] I verified the project identity and official links through attributable primary sources.
+- [ ] The OpenSea contract exactly matches the contract published by the official project.
+- [ ] The chain is Robinhood Chain and the Chain ID is `4663`.
+- [ ] The Public stage schedule, price, quantity, and per-wallet limit agree across sources.
+- [ ] The computer clock and timezone are correct.
+- [ ] The gas fee and per-wallet total-cost cap match my budget.
+- [ ] The RPC source is trusted, and I have not shared or committed its API key.
+- [ ] I understand that **Arm & start** may broadcast a real transaction and I am prepared to verify its on-chain receipt.
