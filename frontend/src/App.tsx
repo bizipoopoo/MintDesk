@@ -420,11 +420,13 @@ function TaskPage({ data, refresh, onNotice }: { data: Dashboard; refresh: () =>
           <div className="collection-card-head">
             <div className="collection-title"><strong>{group.name}</strong><span>{group.tasks.length} wallet{group.tasks.length === 1 ? "" : "s"} · {enabledCount} enabled</span><code>{shortAddress(group.contract)}</code></div>
             <div className="collection-actions">
-              <button className="small-button" aria-expanded={expanded} onClick={() => toggleCollectionExpanded(group.key)}>{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{expanded ? "Hide wallets" : `Show wallets (${group.tasks.length})`}</button>
-              {enabledCount > 0
-                ? <button className="small-button" disabled={data.running} title="Disable all wallet tasks" onClick={() => void setCollectionEnabled(group, false)}><PowerOff size={14} />Disable all</button>
-                : <button className="small-button" disabled={data.running} title="Enable all wallet tasks" onClick={() => void setCollectionEnabled(group, true)}><Power size={14} />Enable all</button>}
-              <button className="small-button destructive" disabled={data.running} title="Delete this collection and every wallet task" onClick={() => setPendingDelete(group)}><Trash2 size={14} />Delete</button>
+              <button className="small-button collection-wallet-toggle" aria-expanded={expanded} onClick={() => toggleCollectionExpanded(group.key)}>{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{expanded ? "Hide wallets" : `Show wallets (${group.tasks.length})`}</button>
+              <div className="collection-management-actions">
+                {enabledCount > 0
+                  ? <button className="small-button" disabled={data.running} title="Disable all wallet tasks" onClick={() => void setCollectionEnabled(group, false)}><PowerOff size={14} />Disable all</button>
+                  : <button className="small-button" disabled={data.running} title="Enable all wallet tasks" onClick={() => void setCollectionEnabled(group, true)}><Power size={14} />Enable all</button>}
+                <button className="small-button destructive" disabled={data.running} title="Delete this collection and every wallet task" onClick={() => setPendingDelete(group)}><Trash2 size={14} />Delete</button>
+              </div>
             </div>
           </div>
           {expanded && <div className="collection-wallets">{group.tasks.map((saved) => <div className="task-row" key={saved.id}><TaskRow task={saved} showCollection={false} /></div>)}</div>}
